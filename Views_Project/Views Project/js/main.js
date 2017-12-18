@@ -29,25 +29,34 @@ var Car = Vehicle.extend({
 	}
 });
 
+
 var VehicleView = Backbone.View.extend({
-	tagName: "li",
-	className: "vehicle",
+  tagName: "li",
+  className: "vehicle",
 
-	events: {
-		"click .delete": "onDelete"
-	},
+  events: {
+    "click .delete": "onDelete"
+  },
 
-	render: function() {
-		var source = $("#vehicleTemplate").html();
-		var template = _.template(source);
-		this.$el.html(template(this.model.toJSON()));
-		this.$el.attr("data-color", this.model.get("color"));
-		return this;
-	},
+  initialize: function(options) {
+    this.bus = options.bus;
+  },
 
-	onDelete: function() {
-		this.remove();
-	}
+  render: function() {
+    var source = $("#vehicleTemplate").html();
+    var template = _.template(source);
+    this.$el.html(template(this.model.toJSON()));
+    this.$el.attr("data-color", this.model.get("color"));
+    return this;
+  },
+
+  onClick: function() {
+    this.bus.trigger("selectedVehicle", this.model);
+  },
+
+  onDelete: function() {
+    this.remove();
+  }
 });
 
 var VehiclesView = Backbone.View.extend({
@@ -55,15 +64,56 @@ var VehiclesView = Backbone.View.extend({
 
   className: "fleet",
 
+  initialize: function(options) {
+    bus.on("newVehicle", this.onNewVehicle, this);
+  },
+
   render: function() {
     this.collection.each(function(vehicle) {
-      var testCarView = new VehicleView({ model: vehicle });
+      var testCarView = new VehicleView({ model: vehicle, bus: bus });
       this.$el.append(testCarView.render().$el);
     }, this);
 
     return this;
+  },
+
+  onNewVehicle: function(registrationNumber) {
+    var car = new Car({ registrationNumber: registrationNumber });
+    var carView = new VehicleView({ model: car });
+    this.$el.prepend(carView.render().$el);
   }
 });
+
+var NewVehicleView = Backbone.View.extend({
+  className: "addVehicle",
+
+  events: {
+    "click .add": "onAdd"
+  },
+
+  render: function() {
+    var source = $("#addVehicle").html();
+    var template = _.template(source);
+    this.$el.html(template);
+    var inputBox = $(this.$el).find("input");
+    inputBox.attr("placeholder", "Enter Your Vehicle Registration Number Here");
+    return this;
+  },
+
+  onAdd: function() {
+    var input = this.$el.find("input");
+    var registrationNumber = input.val();
+
+    if (registrationNumber) {
+      bus.trigger("newVehicle", registrationNumber);
+    }
+    input.val("");
+  }
+});
+
+var bus = _.extend({}, Backbone.Events);
+
+var addView = new NewVehicleView();
 
 var testCarCollection = new Vehicles([
   new Car({registrationNumber: "XXXXXX", color: "Blue"}),
@@ -73,7 +123,9 @@ var testCarCollection = new Vehicles([
 
 var testCarCollectionView = new VehiclesView({ collection: testCarCollection });
 
-$("#container").html(testCarCollectionView.render().$el);
+$("#container")
+.append(addView.render().$el)
+.append(testCarCollectionView.render().$el);
 
 // var testCar = new Vehicle({registrationNumber: "XXXXXX", color: "Blue"});
 
